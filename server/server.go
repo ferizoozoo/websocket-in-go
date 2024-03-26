@@ -66,8 +66,7 @@ func handleRequest(conn net.Conn) {
 	if err != nil && err != io.EOF {
 		return
 	}
-	bufferString := string(buf[:])
-	isGet, _ := regexp.MatchString("^GET", bufferString)
+	isGet, _ := regexp.MatchString("^GET", string(buf[:]))
 
 	if isGet {
 		fmt.Println("GET request")
@@ -81,28 +80,11 @@ func handleRequest(conn net.Conn) {
 				break
 			}
 
-			bufferString := string(buf[:])
-
-			headerString := strings.Split(bufferString, "\r\n")
-			headers := make(map[string]string)
-			for _, headerline := range headerString {
-				headerline := strings.TrimSuffix(headerline, "\n")
-				headerKeyValue := strings.Split(headerline, ":")
-				if len(headerKeyValue) > 1 && headerline != "" {
-					key := strings.TrimSuffix(headerKeyValue[0], "\n")
-					key = strings.TrimSpace(key)
-					value := strings.TrimSuffix(headerKeyValue[1], "\n")
-					value = strings.TrimSpace(value)
-					headers[key] = value
-				}
-			}
-
-			responseString := fmt.Sprintf("HTTP/1.1 101 Switching Protocols\r\n" +
+			response := []byte("HTTP/1.1 101 Switching Protocols\r\n" +
 				"Upgrade: websocket\r\n" +
 				"Connection: Upgrade\r\n" +
 				"Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n" +
 				"User-Agent: Anything\r\n\r\n")
-			response := []byte(responseString)
 			n, _ := conn.Write(response)
 			fmt.Printf("Sent %d bytes\n", n)
 		}
@@ -112,4 +94,14 @@ func handleRequest(conn net.Conn) {
 
 	// TODO: do the message receiving phase (frames, decoding, ...) after handshake
 
+}
+
+func getHeaders(buf []byte) map[string]string {
+	headers := make(map[string]string)
+	for _, headerLine := range strings.Split(string(buf), "\r\n") {
+		if kv := strings.SplitN(headerLine, ":", 2); len(kv) == 2 {
+			headers[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
+		}
+	}
+	return headers
 }
