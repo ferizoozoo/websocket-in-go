@@ -1,6 +1,8 @@
 package websocket
 
 import (
+	"crypto/sha1"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -80,11 +82,15 @@ func handleRequest(conn net.Conn) {
 				break
 			}
 
+			headers := getHeaders(buf)
+			SecWebSocketAccept := generateSecWebSocketAccept(headers["Sec-WebSocket-Key"])
+
 			response := []byte("HTTP/1.1 101 Switching Protocols\r\n" +
 				"Upgrade: websocket\r\n" +
 				"Connection: Upgrade\r\n" +
-				"Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n" +
+				"Sec-WebSocket-Accept: " + SecWebSocketAccept + "\r\n" +
 				"User-Agent: Anything\r\n\r\n")
+
 			n, _ := conn.Write(response)
 			fmt.Printf("Sent %d bytes\n", n)
 		}
@@ -94,6 +100,12 @@ func handleRequest(conn net.Conn) {
 
 	// TODO: do the message receiving phase (frames, decoding, ...) after handshake
 
+}
+
+func generateSecWebSocketAccept(key string) string {
+	hasher := sha1.New()
+	hasher.Write([]byte(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))
+	return base64.URLEncoding.EncodeToString(hasher.Sum(nil))
 }
 
 func getHeaders(buf []byte) map[string]string {
