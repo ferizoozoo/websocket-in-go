@@ -55,9 +55,6 @@ func (s *Server) Run() {
 	}
 }
 
-// TODO: first this function should be refactored
-//
-//	second, it's not complete yet
 func handleRequest(conn net.Conn) {
 	defer conn.Close()
 
@@ -99,13 +96,79 @@ func handleRequest(conn net.Conn) {
 		return
 	}
 
-	// TODO: do the message receiving phase (frames, decoding, ...) after handshake
-	// 		read frames from connection and decode them
+	/* TODO: parse the frame with the following format
+			First byte:
+	bit 0: FIN
+	bit 1: RSV1
+	bit 2: RSV2
+	bit 3: RSV3
+	bits 4-7 OPCODE
+	Bytes 2-10: payload length (see Decoding Payload Length)
+	If masking is used, the next 4 bytes contain the masking key (see Reading and unmasking the data)
+	All subsequent bytes are payload
+	*/
+	buf = make([]byte, 1)
+
 	_, err = conn.Read(buf)
 	if err != nil {
 		return
 	}
 
+	firstByte := buf[0]
+	//fin := firstByte >> 7
+	//rsv1 := firstByte >> 6
+	//rsv2 := firstByte >> 5
+	//rsv3 := firstByte >> 4
+	opcode := firstByte & 7
+	getInstructionFromOpcode(opcode)
+
+	// TODO: read payload and do further process
+	_, err = conn.Read(buf)
+	if err != nil {
+		return
+	}
+
+	payloadLength := uint64((buf[0] << 1) >> 1)
+
+	if payloadLength == 126 {
+		newBuf := make([]byte, 2)
+		copy(newBuf[0:2], buf[:])
+		buf = newBuf
+
+		_, err = conn.Read(buf)
+		if err != nil {
+			return
+		}
+
+		payloadLength = uint64(buf[0])
+		payloadLength <<= 8
+		payloadLength |= uint64(buf[1])
+	} else if payloadLength == 127 {
+		newBuf := make([]byte, 8)
+		copy(newBuf[0:2], buf[:])
+		buf = newBuf
+
+		_, err = conn.Read(buf)
+		if err != nil {
+			return
+		}
+
+		payloadLength = uint64(buf[0])
+		payloadLength <<= 8
+		payloadLength |= uint64(buf[1])
+		payloadLength <<= 8
+		payloadLength |= uint64(buf[2])
+		payloadLength <<= 8
+		payloadLength |= uint64(buf[3])
+		payloadLength <<= 8
+		payloadLength |= uint64(buf[4])
+		payloadLength <<= 8
+		payloadLength |= uint64(buf[5])
+		payloadLength <<= 8
+		payloadLength |= uint64(buf[6])
+		payloadLength <<= 8
+		payloadLength |= uint64(buf[7])
+	}
 }
 
 func getInstructionFromOpcode(opcode byte) {
@@ -117,4 +180,9 @@ func getInstructionFromOpcode(opcode byte) {
 	case 0x2:
 		// TODO: binary
 	}
+}
+
+// TODO: decode bytes for getting payload length (refactoring the horrible code in handleRequest)
+func getPayloadLengthFromConnection(conn net.Conn) int {
+	panic("not implemented yet")
 }
