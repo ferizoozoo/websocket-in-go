@@ -3,6 +3,7 @@ package shared
 import (
 	"crypto/sha1"
 	"encoding/base64"
+	"net"
 	"strings"
 )
 
@@ -27,4 +28,10 @@ func GetHeaders(buf []byte) map[string]string {
 		}
 	}
 	return headers
+}
+
+func ReadFromConnectionToBuffer(conn net.Conn, size int) ([]byte, error) {
+	buf := make([]byte, size)
+	_, err := conn.Read(buf)
+	return buf, err
 }
